@@ -61,9 +61,12 @@ network:
        addresses: [192.168.24.1/24]
 EOF
 
+sudo netplan apply
+
 # Restart DHCP server untuk menerapkan konfigurasi baru
 echo "Restarting DHCP server..."
 sudo systemctl restart isc-dhcp-server
+sudo systemctl status isc-dhcp-server
 
 # 3. Konfigurasi Routing di Ubuntu Server
 echo "Menambahkan konfigurasi routing..."
