@@ -1,3 +1,4 @@
+#!/bin/bash
 set -e
 
 # Menambah Repositori Kartolo
@@ -28,29 +29,33 @@ EOF
 # Konfigurasi Interfaces DHCP
 sudo sed -i 's/^INTERFACESv4=.*/INTERFACESv4="eth1.10"/' /etc/default/isc-dhcp-server
 
-# Konfigrasi IP Statis Untuk Internal Network
+# Konfigrasi IP Statis Untuk Internal Network menggunakan Netplan
 cat <<EOF | sudo tee /etc/netplan/01-netcfg.yaml
 network:
   version: 2
   ethernets:
     eth0:
-     dhcp4: true
+      dhcp4: true
     eth1:
       dhcp4: no
   vlans:
-     eth1.10:
-       id: 10
-       link: eth1
-       addresses: [192.168.24.1/24]
+    eth1.10:
+      id: 10
+      link: eth1
+      addresses: [192.168.24.1/24]
 EOF
 
-# Terapkan Konfigurasi Netplan
+# Terapkan Konfigurasi Netplan dan Aktifkan Interface
+echo "Mengaktifkan interface jaringan..."
+sudo ip link set eth1 up
 sudo netplan apply
 
 # Restart DHCP Server
-sudo /etc/init.d/isc-dhcp-server restart 
+echo "Merestart DHCP server..."
+sudo systemctl restart isc-dhcp-server
 
 # Mengaktifkan IP Forwarding Dan Mengonfigurasi IPTables
+echo "Mengonfigurasi IP Forwarding dan IPTables..."
 sudo sysctl -w net.ipv4.ip_forward=1
 echo "net.ipv4.ip_forward=1" | sudo tee -a /etc/sysctl.conf
 sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
@@ -58,13 +63,9 @@ sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 # Menyimpan Aturan IPTables
 sudo netfilter-persistent save
 
-echo "Mengonfigurasi VLAN di Ubuntu Server..."
-ip link add link eth1 name eth1.10 type vlan id 10
-ip addr add 192.168.24.1/24 dev eth1.10
-ip link set up dev eth1.10
-
+# Konfigurasi Routing untuk jaringan MikroTik
 echo "Menambahkan konfigurasi routing..."
-ip route add 192.168.200.0/24 via 192.168.200.1
+sudo ip route add 192.168.200.0/24 via 192.168.200.1 || echo "Gagal menambahkan route. Pastikan jaringan MikroTik aktif."
 
 # 4. Konfigurasi Cisco Switch melalui SSH dengan username dan password root
 echo "Mengonfigurasi Cisco Switch..."
