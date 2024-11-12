@@ -12,6 +12,21 @@ USER_MIKROTIK="admin"           # Username SSH default MikroTik
 PASSWORD_SWITCH="root"          # Password untuk Cisco Switch
 PASSWORD_MIKROTIK=""            # Kosongkan jika MikroTik tidak memiliki password
 
+set -e
+
+# Menambah Repositori Kartolo
+cat <<EOF | sudo tee /etc/apt/sources.list
+deb http://kartolo.sby.datautama.net.id/ubuntu/ focal main restricted universe multiverse
+deb http://kartolo.sby.datautama.net.id/ubuntu/ focal-updates main restricted universe multiverse
+deb http://kartolo.sby.datautama.net.id/ubuntu/ focal-security main restricted universe multiverse
+deb http://kartolo.sby.datautama.net.id/ubuntu/ focal-backports main restricted universe multiverse
+deb http://kartolo.sby.datautama.net.id/ubuntu/ focal-proposed main restricted universe multiverse
+EOF
+
+sudo apt update
+sudo apt install sshpass -y
+sudo apt install -y isc-dhcp-server iptables iptables-persistent
+
 # 1. Konfigurasi VLAN di Ubuntu Server
 echo "Mengonfigurasi VLAN di Ubuntu Server..."
 ip link add link eth1 name $VLAN_INTERFACE type vlan id $VLAN_ID
