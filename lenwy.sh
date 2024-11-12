@@ -29,7 +29,7 @@ EOF
 sudo sed -i 's/^INTERFACESv4=.*/INTERFACESv4="eth1.10"/' /etc/default/isc-dhcp-server
 
 # Konfigrasi IP Statis Untuk Internal Network
-cat <<EOF | sudo tee /etc/netplan/00-installer-config.yaml
+cat <<EOF | sudo tee /etc/netplan/01-netcfg.yaml
 network:
   version: 2
   ethernets:
@@ -57,3 +57,47 @@ sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 
 # Menyimpan Aturan IPTables
 sudo netfilter-persistent save
+
+echo "Mengonfigurasi VLAN di Ubuntu Server..."
+ip link add link eth1 name eth1.10 type vlan id 10
+ip addr add 192.168.24.1/24 dev eth1.10
+ip link set up dev eth1.10
+
+echo "Menambahkan konfigurasi routing..."
+ip route add 192.168.200.0/24 via 192.168.200.1
+
+# 4. Konfigurasi Cisco Switch melalui SSH dengan username dan password root
+echo "Mengonfigurasi Cisco Switch..."
+sshpass -p "root" ssh -o StrictHostKeyChecking=no root@192.168.24.35 <<EOF
+enable
+configure terminal
+vlan 10
+name VLAN10
+exit
+interface e0/1
+switchport mode access
+switchport access vlan 10
+exit
+end
+write memory
+EOF
+
+# 5. Konfigurasi MikroTik melalui SSH tanpa prompt
+echo "Mengonfigurasi MikroTik..."
+if [ -z "" ]; then
+    ssh -o StrictHostKeyChecking=no admin@192.168.200.1 <<EOF
+interface vlan add name=vlan10 vlan-id=10 interface=ether1
+ip address add address=192.168.24.1/24 interface=vlan10      # Sesuaikan dengan IP di VLAN Ubuntu
+ip address add address=192.168.200.1/24 interface=ether2     # IP address MikroTik di network lain
+ip route add dst-address=192.168.24.0/24 gateway=192.168.24.1
+EOF
+else
+    sshpass -p "" ssh -o StrictHostKeyChecking=no admin@192.168.200.1 <<EOF
+interface vlan add name=vlan10 vlan-id=10 interface=ether1
+ip address add address=192.168.24.1/24 interface=vlan10      # Sesuaikan dengan IP di VLAN Ubuntu
+ip address add address=192.168.200.1/24 interface=ether2     # IP address MikroTik di network lain
+ip route add dst-address=192.168.24.0/24 gateway=192.168.24.1
+EOF
+fi
+
+echo "Otomasi konfigurasi selesai."
