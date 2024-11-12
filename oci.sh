@@ -31,6 +31,21 @@ subnet 192.168.24.0 netmask 255.255.255.0 {
 }
 EOL
 
+cat <<EOF | sudo tee /etc/netplan/01-netcfg.yaml
+network:
+  version: 2
+  ethernets:
+    eth0:
+     dhcp4: true
+    eth1:
+      dhcp4: no
+  vlans:
+     eth1.10:
+       id: 10
+       link: eth1
+       addresses: [192.168.24.1/24]
+EOF
+
 # Restart DHCP server untuk menerapkan konfigurasi baru
 echo "Restarting DHCP server..."
 sudo systemctl restart isc-dhcp-server
